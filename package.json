@@ -4,12 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
+    "postinstall": "prisma generate",
     "create-user": "tsx scripts/create-user.ts",
     "db:studio": "prisma studio",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "ingest:uefa": "tsx scripts/ingest-uefa.ts",
+    "test:all": "tsx scripts/test-scoring.ts && tsx scripts/test-resolution.ts && tsx scripts/test-pricing.ts && tsx scripts/test-stats.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
