@@ -1,0 +1,199 @@
+"use client";
+
+import { useMemo, useState, useTransition } from "react";
+import type { Position } from "@/generated/prisma/enums";
+import {
+  getStat,
+  saveStatOverride,
+  STAT_FIELDS,
+  type StatValues,
+} from "@/app/admin/actions";
+
+export interface AdminPlayer {
+  id: number;
+  name: string;
+  position: Position;
+  clubName: string;
+}
+
+export function AdminPanel({
+  gameweeks,
+  players,
+}: {
+  gameweeks: { id: string; label: string }[];
+  players: AdminPlayer[];
+}) {
+  const [gameweekId, setGameweekId] = useState(gameweeks[0]?.id ?? "");
+  const [search, setSearch] = useState("");
+  const [player, setPlayer] = useState<AdminPlayer | null>(null);
+  const [values, setValues] = useState<StatValues | null>(null);
+  const [reason, setReason] = useState("");
+  const [pending, startTransition] = useTransition();
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const matches = useMemo(
+    () =>
+      search
+        ? players
+            .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
+            .slice(0, 15)
+        : [],
+    [players, search],
+  );
+
+  function selectPlayer(p: AdminPlayer) {
+    setPlayer(p);
+    setSearch("");
+    setMsg(null);
+    startTransition(async () => {
+      const v = await getStat(p.id, gameweekId);
+      setValues(v);
+    });
+  }
+
+  function setField(field: keyof StatValues, raw: string | boolean) {
+    setValues((prev) =>
+      prev
+        ? {
+            ...prev,
+            [field]: typeof raw === "boolean" ? raw : Math.max(0, Number(raw) || 0),
+          }
+        : prev,
+    );
+  }
+
+  function onSave() {
+    if (!player || !values) return;
+    setMsg(null);
+    startTransition(async () => {
+      const res = await saveStatOverride({ playerId: player.id, gameweekId, reason, values });
+      if (res.ok) {
+        setMsg({ ok: true, text: `Saved ${res.changes} change(s); ${res.recomputed} players rescored. Re-run resolve-chips to cascade.` });
+        setReason("");
+      } else {
+        setMsg({ ok: false, text: res.error });
+      }
+    });
+  }
+
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <label className="text-sm text-slate-400">Gameweek</label>
+        <select
+          value={gameweekId}
+          onChange={(e) => {
+            setGameweekId(e.target.value);
+            setPlayer(null);
+            setValues(null);
+          }}
+          className="rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm"
+        >
+          {gameweeks.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {!player && (
+        <div className="relative">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search a player to edit…"
+            className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+          />
+          {matches.length > 0 && (
+            <ul className="mt-1 max-h-56 overflow-y-auto rounded border border-slate-800 bg-slate-950">
+              {matches.map((p) => (
+                <li key={p.id}>
+                  <button
+                    onClick={() => selectPlayer(p)}
+                    className="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm hover:bg-slate-800"
+                  >
+                    <span>{p.name}</span>
+                    <span className="text-xs text-slate-400">
+                      {p.position} · {p.clubName}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {player && values && (
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <div className="font-medium">
+              {player.name}{" "}
+              <span className="text-xs text-slate-400">
+                {player.position} · {player.clubName}
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                setPlayer(null);
+                setValues(null);
+              }}
+              className="text-sm text-slate-400 hover:text-slate-200"
+            >
+              change
+            </button>
+          </div>
+
+          <label className="mb-3 flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={values.cleanSheet}
+              onChange={(e) => setField("cleanSheet", e.target.checked)}
+            />
+            Clean sheet
+          </label>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {STAT_FIELDS.map((field) => (
+              <label key={field} className="flex flex-col gap-1 text-xs">
+                <span className="text-slate-400">{field}</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={values[field]}
+                  onChange={(e) => setField(field, e.target.value)}
+                  className="rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm"
+                />
+              </label>
+            ))}
+          </div>
+
+          <label className="mt-4 flex flex-col gap-1 text-sm">
+            <span className="text-slate-400">Reason (required, logged)</span>
+            <input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. corrected assist per official UEFA stats"
+              className="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+            />
+          </label>
+
+          {msg && (
+            <p className={`mt-3 text-sm ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>
+              {msg.text}
+            </p>
+          )}
+
+          <button
+            onClick={onSave}
+            disabled={pending || reason.trim().length < 3}
+            className="mt-4 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium hover:bg-indigo-500 disabled:opacity-40"
+          >
+            {pending ? "Saving…" : "Save override & recompute"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

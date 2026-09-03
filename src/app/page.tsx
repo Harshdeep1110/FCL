@@ -52,6 +52,13 @@ export default async function Home() {
             </div>
           </Link>
           <Link
+            href="/draft/knockout"
+            className="rounded-lg border border-slate-800 bg-slate-900/50 p-5 transition hover:border-indigo-600"
+          >
+            <div className="font-medium">Knockout redraft</div>
+            <div className="text-sm text-slate-400">50M · 7 players · active clubs</div>
+          </Link>
+          <Link
             href="/chips"
             className="rounded-lg border border-slate-800 bg-slate-900/50 p-5 transition hover:border-indigo-600"
           >

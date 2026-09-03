@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { fetchPlayers, type UefaPlayer } from "@/lib/uefa";
 import { computeBasePoints } from "@/lib/scoring";
-import type { Position } from "@/generated/prisma/enums";
+import type { Position, Stage } from "@/generated/prisma/enums";
 
 /**
  * Per-gameweek stat line derived by diffing two cumulative UEFA player feeds.
@@ -57,11 +57,12 @@ export interface StatsIngestResult {
  */
 export async function ingestGameweekStats(
   gwNumber: number,
+  stage: Stage = "LEAGUE",
 ): Promise<StatsIngestResult> {
   const gw = await prisma.gameweek.findUnique({
-    where: { number_stage: { number: gwNumber, stage: "LEAGUE" } },
+    where: { number_stage: { number: gwNumber, stage } },
   });
-  if (!gw) throw new Error(`Gameweek ${gwNumber} (LEAGUE) not found.`);
+  if (!gw) throw new Error(`Gameweek ${gwNumber} (${stage}) not found.`);
 
   const [now, prev] = await Promise.all([
     fetchPlayers(gwNumber),
@@ -110,11 +111,12 @@ export interface PointsComputeResult {
  */
 export async function computeGameweekPoints(
   gwNumber: number,
+  stage: Stage = "LEAGUE",
 ): Promise<PointsComputeResult> {
   const gw = await prisma.gameweek.findUnique({
-    where: { number_stage: { number: gwNumber, stage: "LEAGUE" } },
+    where: { number_stage: { number: gwNumber, stage } },
   });
-  if (!gw) throw new Error(`Gameweek ${gwNumber} (LEAGUE) not found.`);
+  if (!gw) throw new Error(`Gameweek ${gwNumber} (${stage}) not found.`);
 
   const stats = await prisma.playerGameweekStat.findMany({
     where: { gameweekId: gw.id },
