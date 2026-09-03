@@ -33,6 +33,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "dotenv": "^17.4.2",
+    "playwright": "^1.62.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
     "typescript": "^5"

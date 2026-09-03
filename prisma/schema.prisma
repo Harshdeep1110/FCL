@@ -134,7 +134,9 @@ model VerificationToken {
 model Club {
   id                String    @id @default(cuid())
   name              String
-  apiFootballTeamId Int       @unique
+  // Dual-source ids: UEFA feeds (current season) or API-Football (alternate).
+  uefaTeamId        Int?      @unique
+  apiFootballTeamId Int?      @unique
   eliminated        Boolean   @default(false)
   eliminatedAt      DateTime?
 
@@ -149,7 +151,8 @@ model Player {
   name                String
   clubId              String
   position            Position
-  apiFootballPlayerId Int      @unique
+  uefaPlayerId        String?  @unique
+  apiFootballPlayerId Int?     @unique
   currentPrice        Float
   originalPrice       Float
 
@@ -202,7 +205,8 @@ model Gameweek {
 
 model Fixture {
   id                   String        @id @default(cuid())
-  apiFootballFixtureId Int           @unique
+  uefaMatchId          String?       @unique
+  apiFootballFixtureId Int?          @unique
   clubHomeId           String
   clubAwayId           String
   kickoffTime          DateTime
@@ -220,32 +224,38 @@ model Fixture {
   @@index([gameweekId])
 }
 
-/// Raw per-player, per-fixture stats pulled from API-Football.
+/// Raw per-player, per-gameweek stats. One row per (player, gameweek): for
+/// UEFA this is the matchday aggregate (derived by diffing cumulative feeds);
+/// for API-Football, multiple same-GW fixtures are summed at ingestion.
+/// `fixtureId` is optional/informational (UEFA data isn't per-fixture).
 model PlayerGameweekStat {
-  id                         String  @id @default(cuid())
-  playerId                   Int
-  fixtureId                  String
-  gameweekId                 String
-  minutesPlayed              Int     @default(0)
-  minutesExtraTime           Int     @default(0)
-  goals                      Int     @default(0)
-  assists                    Int     @default(0)
-  cleanSheet                 Boolean @default(false)
-  goalsConceded              Int     @default(0)
-  saves                      Int     @default(0)
-  penaltiesSaved             Int     @default(0)
-  penaltiesMissed            Int     @default(0)
-  yellowCards                Int     @default(0)
-  redCards                   Int     @default(0)
-  ownGoals                   Int     @default(0)
-  cbitCount                  Int     @default(0)
+  id               String  @id @default(cuid())
+  playerId         Int
+  gameweekId       String
+  fixtureId        String?
+  minutesPlayed    Int     @default(0)
+  minutesExtraTime Int     @default(0)
+  goals            Int     @default(0)
+  assists          Int     @default(0)
+  cleanSheet       Boolean @default(false)
+  goalsConceded    Int     @default(0)
+  saves            Int     @default(0)
+  penaltiesSaved   Int     @default(0)
+  penaltiesMissed  Int     @default(0)
+  yellowCards      Int     @default(0)
+  redCards         Int     @default(0)
+  ownGoals         Int     @default(0)
+  /// UEFA "balls recovered" — drives the adapted defensive-contribution rule.
+  ballsRecovered   Int     @default(0)
+  /// Raw CBIT count (API-Football path); 0 when using UEFA data.
+  cbitCount        Int     @default(0)
   isDefensiveContributionMet Boolean @default(false)
 
   player   Player   @relation(fields: [playerId], references: [id])
-  fixture  Fixture  @relation(fields: [fixtureId], references: [id])
+  fixture  Fixture? @relation(fields: [fixtureId], references: [id])
   gameweek Gameweek @relation(fields: [gameweekId], references: [id])
 
-  @@unique([playerId, fixtureId])
+  @@unique([playerId, gameweekId])
   @@index([gameweekId])
 }
 

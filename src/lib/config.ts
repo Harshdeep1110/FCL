@@ -80,12 +80,23 @@ export const SCORING = {
   defensiveContribution: 2, // capped, one-time per match, if threshold met
 } as const;
 
-/** CBIT thresholds for the "defensive contribution" bonus (PRD §4). */
+/** CBIT thresholds for the "defensive contribution" bonus (PRD §4).
+ *  Used by the API-Football path (which exposes raw CBIT). */
 export const DEFENSIVE_CONTRIBUTION_THRESHOLD: Record<Position, number> = {
   GK: Infinity, // n/a
   DEF: 10, // 10+ CBIT
   MID: 12, // 12+ CBIT + recoveries
   ATT: 12,
+};
+
+/** Adapted defensive-contribution thresholds for the UEFA path, which exposes
+ *  "balls recovered" (bR) rather than raw CBIT (product decision — tune here).
+ *  bR is recoveries-only (a subset of CBIT), so thresholds are lower. */
+export const DEFENSIVE_CONTRIBUTION_BR_THRESHOLD: Record<Position, number> = {
+  GK: Infinity, // n/a
+  DEF: 6,
+  MID: 8,
+  ATT: 8,
 };
 
 // ---------------------------------------------------------------------------
@@ -178,4 +189,22 @@ export const API_FOOTBALL = {
   dailySafetyCap: 90,
   perMinuteLimit: 10,
   quotaResetTimezone: "UTC", // quota resets 00:00 UTC
+} as const;
+
+// ---------------------------------------------------------------------------
+// UEFA fantasy feeds (primary source for the current season — §8a).
+// Free, current-season, includes prices. Unofficial/undocumented.
+// ---------------------------------------------------------------------------
+
+export const UEFA = {
+  baseUrl: "https://gaming.uefa.com/en/uclfantasy/services/feeds",
+  /** Feed id for the current season (90 = 2026/27). Override via env. */
+  feedId: Number(process.env.UEFA_FEED_ID ?? 90),
+  /** Feed timestamps are European (CET/CEST); parse in this zone, store UTC. */
+  timezone: "Europe/Zurich",
+  /** UEFA `skill` code → our Position. */
+  positionBySkill: { 1: "GK", 2: "DEF", 3: "MID", 4: "ATT" } as Record<
+    number,
+    Position
+  >,
 } as const;
