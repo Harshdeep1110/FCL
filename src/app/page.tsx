@@ -52,6 +52,13 @@ export default async function Home() {
             </div>
           </Link>
           <Link
+            href="/chips"
+            className="rounded-lg border border-slate-800 bg-slate-900/50 p-5 transition hover:border-indigo-600"
+          >
+            <div className="font-medium">Black Market</div>
+            <div className="text-sm text-slate-400">Buy chips to boost or disrupt</div>
+          </Link>
+          <Link
             href="/standings"
             className="rounded-lg border border-slate-800 bg-slate-900/50 p-5 transition hover:border-indigo-600"
           >
