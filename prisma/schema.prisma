@@ -1,0 +1,501 @@
+// UCL Fantasy League — Prisma schema
+// See ucl-fantasy-prd.md. Tunable constants (scoring table, chip prices,
+// pricing-formula coefficients) live in code (src/lib/config.ts), not the DB,
+// so they can be adjusted without a migration.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Position {
+  GK
+  DEF
+  MID
+  ATT
+}
+
+/// Real-competition stage a fixture/gameweek belongs to.
+enum Stage {
+  LEAGUE
+  RO16
+  QF
+  SF
+  FINAL
+}
+
+/// Which of a user's two squads (league-phase vs. knockout redraft).
+enum SquadStage {
+  LEAGUE
+  KNOCKOUT
+}
+
+enum FixtureStatus {
+  SCHEDULED
+  LIVE
+  FINISHED
+}
+
+enum ChipType {
+  RED_CARD
+  BANKER
+  INFLATION
+  BENCH_BOOST
+  BOUNTY
+  FREE_HIT
+}
+
+/// What kind of record an AdminOverride touched (for the audit trail).
+enum OverrideTargetType {
+  PLAYER_GAMEWEEK_STAT
+  CHIP_PURCHASE
+  PLAYER_PRICE
+  LINEUP
+  OTHER
+}
+
+// ---------------------------------------------------------------------------
+// Auth (Auth.js v5 + @auth/prisma-adapter) + participant fields
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  /// bcrypt hash for credentials login (invite-only). Null until set.
+  passwordHash  String?
+  isAdmin       Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  accounts Account[]
+  sessions Session[]
+
+  squads            Squad[]
+  lineups           Lineup[]
+  chipPurchases     ChipPurchase[]
+  transfers         Transfer[]
+  transferBanks     TransferBank[]
+  gameweekScores    UserGameweekScore[]
+  adminOverrides    AdminOverride[]     @relation("AdminOverrideAuthor")
+  bountyPayoutsWon  BountyPayout[]      @relation("BountyBuyer")
+  bountyPayoutsPaid BountyPayout[]      @relation("BountyOwner")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Football domain
+// ---------------------------------------------------------------------------
+
+model Club {
+  id                String    @id @default(cuid())
+  name              String
+  // Dual-source ids: UEFA feeds (current season) or API-Football (alternate).
+  uefaTeamId        Int?      @unique
+  apiFootballTeamId Int?      @unique
+  eliminated        Boolean   @default(false)
+  eliminatedAt      DateTime?
+
+  players       Player[]
+  homeFixtures  Fixture[]      @relation("HomeClub")
+  awayFixtures  Fixture[]      @relation("AwayClub")
+  inflationHits ChipPurchase[] @relation("InflationTargetClub")
+}
+
+model Player {
+  id                  Int      @id @default(autoincrement())
+  name                String
+  clubId              String
+  position            Position
+  uefaPlayerId        String?  @unique
+  apiFootballPlayerId Int?     @unique
+  currentPrice        Float
+  originalPrice       Float
+
+  club Club @relation(fields: [clubId], references: [id])
+
+  gameweekStats  PlayerGameweekStat[]
+  gameweekPoints PlayerGameweekPoints[]
+  squadEntries   SquadPlayer[]
+  lineupEntries  LineupPlayer[]
+  priceHistory   PriceHistory[]
+  randomBoosts   RandomBoostSelection[]
+
+  chipTargets   ChipPurchase[] @relation("ChipTargetPlayer")
+  transfersOut  Transfer[]     @relation("PlayerOut")
+  transfersIn   Transfer[]     @relation("PlayerIn")
+  bountyPayouts BountyPayout[]
+
+  @@index([clubId])
+}
+
+model Gameweek {
+  id       String   @id @default(cuid())
+  number   Int
+  stage    Stage
+  /// Computed = earliest fixture kickoff − 1hr. Stored in UTC.
+  deadline DateTime
+  locked   Boolean  @default(false)
+
+  // Job/lifecycle flags — keep the pipeline idempotent & re-runnable.
+  statsComplete       Boolean @default(false)
+  pointsComputed      Boolean @default(false)
+  randomBoostSelected Boolean @default(false)
+  chipsResolved       Boolean @default(false)
+  pricesRecomputed    Boolean @default(false)
+
+  fixtures       Fixture[]
+  playerStats    PlayerGameweekStat[]
+  playerPoints   PlayerGameweekPoints[]
+  lineups        Lineup[]
+  chipPurchases  ChipPurchase[]
+  randomBoosts   RandomBoostSelection[]
+  priceHistory   PriceHistory[]
+  transfers      Transfer[]
+  transferBanks  TransferBank[]
+  gameweekScores UserGameweekScore[]
+  bountyPayouts  BountyPayout[]
+
+  @@unique([number, stage])
+}
+
+model Fixture {
+  id                   String        @id @default(cuid())
+  uefaMatchId          String?       @unique
+  apiFootballFixtureId Int?          @unique
+  clubHomeId           String
+  clubAwayId           String
+  kickoffTime          DateTime
+  gameweekId           String
+  stage                Stage
+  status               FixtureStatus @default(SCHEDULED)
+  statsPulled          Boolean       @default(false)
+
+  clubHome Club     @relation("HomeClub", fields: [clubHomeId], references: [id])
+  clubAway Club     @relation("AwayClub", fields: [clubAwayId], references: [id])
+  gameweek Gameweek @relation(fields: [gameweekId], references: [id])
+
+  playerStats PlayerGameweekStat[]
+
+  @@index([gameweekId])
+}
+
+/// Raw per-player, per-gameweek stats. One row per (player, gameweek): for
+/// UEFA this is the matchday aggregate (derived by diffing cumulative feeds);
+/// for API-Football, multiple same-GW fixtures are summed at ingestion.
+/// `fixtureId` is optional/informational (UEFA data isn't per-fixture).
+model PlayerGameweekStat {
+  id               String  @id @default(cuid())
+  playerId         Int
+  gameweekId       String
+  fixtureId        String?
+  minutesPlayed    Int     @default(0)
+  minutesExtraTime Int     @default(0)
+  goals            Int     @default(0)
+  assists          Int     @default(0)
+  cleanSheet       Boolean @default(false)
+  goalsConceded    Int     @default(0)
+  saves            Int     @default(0)
+  penaltiesSaved   Int     @default(0)
+  penaltiesMissed  Int     @default(0)
+  yellowCards      Int     @default(0)
+  redCards         Int     @default(0)
+  ownGoals         Int     @default(0)
+  /// UEFA "balls recovered" — drives the adapted defensive-contribution rule.
+  ballsRecovered   Int     @default(0)
+  /// Raw CBIT count (API-Football path); 0 when using UEFA data.
+  cbitCount        Int     @default(0)
+  isDefensiveContributionMet Boolean @default(false)
+
+  player   Player   @relation(fields: [playerId], references: [id])
+  fixture  Fixture? @relation(fields: [fixtureId], references: [id])
+  gameweek Gameweek @relation(fields: [gameweekId], references: [id])
+
+  @@unique([playerId, gameweekId])
+  @@index([gameweekId])
+}
+
+/// Computed base fantasy points per player per gameweek (pre any multiplier).
+/// This is the raw value Bounty's `< 4` threshold reads.
+model PlayerGameweekPoints {
+  id            String  @id @default(cuid())
+  playerId      Int
+  gameweekId    String
+  basePoints    Float   @default(0)
+  /// True if this player was one of the 5 Random Boost picks this gameweek.
+  randomBoosted Boolean @default(false)
+
+  player   Player   @relation(fields: [playerId], references: [id])
+  gameweek Gameweek @relation(fields: [gameweekId], references: [id])
+
+  @@unique([playerId, gameweekId])
+  @@index([gameweekId])
+}
+
+// ---------------------------------------------------------------------------
+// Squads: live roster (Squad/SquadPlayer) + locked per-GW snapshot (Lineup)
+// ---------------------------------------------------------------------------
+
+/// A user's persistent roster for a stage, evolving via transfers.
+model Squad {
+  id          String     @id @default(cuid())
+  userId      String
+  stage       SquadStage
+  budget      Float
+  budgetSpent Float      @default(0)
+
+  user    User          @relation(fields: [userId], references: [id])
+  players SquadPlayer[]
+
+  @@unique([userId, stage])
+}
+
+/// Live roster membership + the currently-intended lineup for the next GW.
+model SquadPlayer {
+  id           String  @id @default(cuid())
+  squadId      String
+  playerId     Int
+  isStarting   Boolean @default(false)
+  isCaptain    Boolean @default(false)
+  priceAtDraft Float
+
+  squad  Squad  @relation(fields: [squadId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@unique([squadId, playerId])
+}
+
+/// Locked snapshot of a user's squad for one gameweek — the source of truth
+/// for scoring, Bench Boost, Banker, captaincy and Free Hit reversion.
+model Lineup {
+  id         String     @id @default(cuid())
+  userId     String
+  gameweekId String
+  stage      SquadStage
+  /// Set when this gameweek is a Free Hit for the user; the live Squad is
+  /// restored from the pre-Free-Hit roster after scoring finalizes.
+  isFreeHit  Boolean    @default(false)
+  lockedAt   DateTime   @default(now())
+
+  user     User           @relation(fields: [userId], references: [id])
+  gameweek Gameweek       @relation(fields: [gameweekId], references: [id])
+  players  LineupPlayer[]
+
+  @@unique([userId, gameweekId])
+  @@index([gameweekId])
+}
+
+model LineupPlayer {
+  id          String   @id @default(cuid())
+  lineupId    String
+  playerId    Int
+  position    Position
+  isStarting  Boolean
+  isCaptain   Boolean  @default(false)
+  /// Final points this player contributed to THIS user's total, after all
+  /// multipliers that apply to this owner (captain 2x, Banker 2x, Boost 1.5x).
+  finalPoints Float    @default(0)
+
+  lineup Lineup @relation(fields: [lineupId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@unique([lineupId, playerId])
+}
+
+// ---------------------------------------------------------------------------
+// Chips, boosts, transfers, prices
+// ---------------------------------------------------------------------------
+
+model ChipPurchase {
+  id             String   @id @default(cuid())
+  userId         String
+  chipType       ChipType
+  gameweekId     String
+  pointsCost     Float    @default(0)
+  isFree         Boolean  @default(false)
+  targetPlayerId Int?
+  targetClubId   String?
+  resolved       Boolean  @default(false)
+  /// Net effect applied to the buyer's gameweek total (e.g. Bounty winnings).
+  resultPoints   Float?
+  createdAt      DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id])
+  gameweek     Gameweek @relation(fields: [gameweekId], references: [id])
+  targetPlayer Player?  @relation("ChipTargetPlayer", fields: [targetPlayerId], references: [id])
+  targetClub   Club?    @relation("InflationTargetClub", fields: [targetClubId], references: [id])
+
+  @@index([gameweekId])
+  @@index([userId])
+}
+
+/// One row per (buyer, owner, target) Bounty transfer, for auditability.
+model BountyPayout {
+  id         String @id @default(cuid())
+  gameweekId String
+  buyerId    String
+  ownerId    String
+  playerId   Int
+  points     Float
+
+  gameweek Gameweek @relation(fields: [gameweekId], references: [id])
+  buyer    User     @relation("BountyBuyer", fields: [buyerId], references: [id])
+  owner    User     @relation("BountyOwner", fields: [ownerId], references: [id])
+  player   Player   @relation(fields: [playerId], references: [id])
+
+  @@index([gameweekId])
+}
+
+model RandomBoostSelection {
+  id         String   @id @default(cuid())
+  gameweekId String
+  playerId   Int
+  selectedAt DateTime @default(now())
+
+  gameweek Gameweek @relation(fields: [gameweekId], references: [id])
+  player   Player   @relation(fields: [playerId], references: [id])
+
+  @@unique([gameweekId, playerId])
+}
+
+model PriceHistory {
+  id            String @id @default(cuid())
+  playerId      Int
+  gameweekId    String
+  priceBefore   Float
+  priceAfter    Float
+  rawDelta      Float
+  /// EMA-smoothed delta; carried into next gameweek's calculation.
+  smoothedDelta Float
+
+  player   Player   @relation(fields: [playerId], references: [id])
+  gameweek Gameweek @relation(fields: [gameweekId], references: [id])
+
+  @@unique([playerId, gameweekId])
+}
+
+model TransferBank {
+  id                     String @id @default(cuid())
+  userId                 String
+  gameweekId             String
+  /// Free transfers available this gameweek, capped at 3 (see config).
+  freeTransfersAvailable Int    @default(1)
+
+  user     User     @relation(fields: [userId], references: [id])
+  gameweek Gameweek @relation(fields: [gameweekId], references: [id])
+
+  @@unique([userId, gameweekId])
+}
+
+model Transfer {
+  id              String   @id @default(cuid())
+  userId          String
+  gameweekId      String
+  playerOutId     Int
+  playerInId      Int
+  wasFreeTransfer Boolean  @default(true)
+  /// 0 or −4 (config), applied to the gameweek total if beyond the allowance.
+  pointsPenalty   Float    @default(0)
+  createdAt       DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+  gameweek  Gameweek @relation(fields: [gameweekId], references: [id])
+  playerOut Player   @relation("PlayerOut", fields: [playerOutId], references: [id])
+  playerIn  Player   @relation("PlayerIn", fields: [playerInId], references: [id])
+
+  @@index([userId, gameweekId])
+}
+
+/// Materialized per-user per-gameweek scoring breakdown → cheap standings.
+model UserGameweekScore {
+  id              String @id @default(cuid())
+  userId          String
+  gameweekId      String
+  startingPoints  Float  @default(0)
+  benchPoints     Float  @default(0)
+  chipCost        Float  @default(0)
+  bountyGained    Float  @default(0)
+  bountyLost      Float  @default(0)
+  transferPenalty Float  @default(0)
+  total           Float  @default(0)
+
+  user     User     @relation(fields: [userId], references: [id])
+  gameweek Gameweek @relation(fields: [gameweekId], references: [id])
+
+  @@unique([userId, gameweekId])
+  @@index([gameweekId])
+}
+
+/// Audit log of every API-Football call, for the daily-quota safety cap
+/// (PRD §10). Counting rows for the current UTC day gates further calls.
+model ApiCallLog {
+  id        String   @id @default(cuid())
+  endpoint  String
+  success   Boolean  @default(true)
+  note      String?
+  calledAt  DateTime @default(now())
+
+  @@index([calledAt])
+}
+
+// ---------------------------------------------------------------------------
+// Admin audit trail
+// ---------------------------------------------------------------------------
+
+model AdminOverride {
+  id           String             @id @default(cuid())
+  adminUserId  String
+  targetType   OverrideTargetType
+  targetId     String
+  fieldChanged String
+  oldValue     String?
+  newValue     String?
+  reason       String
+  createdAt    DateTime           @default(now())
+
+  admin User @relation("AdminOverrideAuthor", fields: [adminUserId], references: [id])
+}
