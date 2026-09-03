@@ -32,7 +32,7 @@ interface UefaTeam {
   isEliminated: number | null;
 }
 
-interface UefaPlayer {
+export interface UefaPlayer {
   id: string;
   pDName: string;
   latinName: string;
@@ -40,6 +40,19 @@ interface UefaPlayer {
   skill: number;
   value: number;
   isActive: number;
+  // Season-cumulative stat fields (diffed between matchdays for per-GW stats).
+  minsPlyd: number;
+  gS: number; // goals scored
+  assist: number;
+  cS: number; // clean sheets (count)
+  gC: number; // goals conceded
+  yC: number; // yellow cards
+  rC: number; // red cards
+  oG: number; // own goals
+  pS: number; // penalties saved
+  pM: number; // penalties missed
+  saves: number;
+  bR: number; // balls recovered
 }
 
 interface UefaMatch {
