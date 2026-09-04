@@ -18,7 +18,7 @@ the full product spec.
 Player prices, stats, fixtures, and club-elimination status come from **UEFA's
 own fantasy feeds** (free, current-season 2026/27). API-Football is kept as a
 dormant alternate (its free tier only covers seasons 2022–2024). UEFA exposes
-`balls recovered` rather than raw CBIT, so the defensive-contribution points use
+`balls recovered` rather than raw CBIT, so the defensive-contributions points use
 balls-recovered thresholds (`src/lib/config.ts`, tunable).
 
 ## Local setup
