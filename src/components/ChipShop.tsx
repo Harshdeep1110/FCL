@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import type { ChipType, Position } from "@/generated/prisma/enums";
 import { CHIP_COST, CHIP_TARGET, CHIP_RULES } from "@/lib/config";
 import { buyChipAction } from "@/app/chips/actions";
@@ -96,82 +97,114 @@ export function ChipShop({
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-8">
-      <div className="mb-6 flex flex-wrap items-center gap-4 text-sm">
-        <span className="rounded bg-slate-800 px-3 py-1.5">Gameweek {gameweekNumber}</span>
-        <span className="text-slate-400">
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+      <div className="mb-6 flex flex-wrap items-center gap-3 text-sm">
+        <span className="rounded-lg bg-ucl-blue/20 px-3 py-1.5 font-semibold text-ucl-cyan">
+          Gameweek {gameweekNumber}
+        </span>
+        <span className="text-muted">
           Deadline: {new Date(deadline).toLocaleString()}
         </span>
-        <span className="text-slate-400">
+        <span className="text-muted">
           Chips this GW: {usedCount}/{CHIP_RULES.maxChipsPerGameweek}
         </span>
         {freeChipAvailable && (
-          <span className="rounded bg-emerald-600/30 px-3 py-1.5 text-emerald-300">
+          <span className="rounded-lg bg-ok/15 px-3 py-1.5 text-ok">
             First chip free 🎁
           </span>
         )}
       </div>
 
-      {msg && (
-        <p className={`mb-4 text-sm ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>
-          {msg.text}
-        </p>
-      )}
+      <AnimatePresence mode="wait">
+        {msg && (
+          <motion.p
+            key={msg.text}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            role="status"
+            className={`mb-4 text-sm ${msg.ok ? "text-ok" : "text-bad"}`}
+          >
+            {msg.text}
+          </motion.p>
+        )}
+      </AnimatePresence>
       {deadlinePassed && (
-        <p className="mb-4 text-sm text-amber-400">The deadline has passed.</p>
+        <p className="mb-4 text-sm text-warn">The deadline has passed.</p>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <motion.div
+        initial="hidden"
+        animate="show"
+        variants={{
+          hidden: {},
+          show: { transition: { staggerChildren: 0.05 } },
+        }}
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+      >
         {ORDER.map((chip) => {
           const cost = costFor(chip);
           const already = chipsUsedThisGw.includes(chip);
           const disabled = pending || atGwLimit || deadlinePassed;
           return (
-            <div
+            <motion.div
               key={chip}
-              className="flex flex-col rounded-lg border border-slate-800 bg-slate-900/50 p-4"
+              variants={{
+                hidden: { opacity: 0, y: 16 },
+                show: { opacity: 1, y: 0 },
+              }}
+              whileHover={{ y: -3 }}
+              className="card-surface flex flex-col rounded-2xl p-4"
             >
               <div className="mb-1 flex items-center justify-between">
                 <span className="font-semibold">{CHIP_META[chip].label}</span>
-                <span className="font-mono text-sm text-amber-400">
+                <span className="font-mono text-sm text-warn">
                   {cost === 0 ? "FREE" : `${cost} pts`}
                 </span>
               </div>
-              <p className="mb-3 flex-1 text-xs text-slate-400">{CHIP_META[chip].effect}</p>
-              <button
+              <p className="mb-3 flex-1 text-xs text-muted">{CHIP_META[chip].effect}</p>
+              <motion.button
+                whileTap={disabled ? undefined : { scale: 0.96 }}
                 onClick={() => beginBuy(chip)}
                 disabled={disabled}
-                className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium hover:bg-indigo-500 disabled:opacity-40"
+                className="rounded-lg bg-gradient-to-r from-ucl-cyan to-ucl-blue px-3 py-1.5 text-sm font-semibold text-[#04122e] transition hover:brightness-110 disabled:opacity-40 disabled:grayscale"
               >
                 {already ? "Buy again" : "Buy"}
-              </button>
-            </div>
+              </motion.button>
+            </motion.div>
           );
         })}
-      </div>
+      </motion.div>
 
       {/* Target picker */}
+      <AnimatePresence>
       {selected && CHIP_TARGET[selected] === "PLAYER" && (
-        <div className="mt-6 rounded-lg border border-indigo-800 bg-slate-900 p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 10 }}
+          className="card-surface mt-6 rounded-2xl border-ucl-blue/40 p-4"
+        >
           <div className="mb-2 font-medium">Pick a target for {CHIP_META[selected].label}</div>
           <input
             autoFocus
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search player…"
-            className="mb-2 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+            aria-label="Search player"
+            className="mb-2 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm outline-none focus:border-ucl-cyan"
           />
           <ul className="max-h-56 overflow-y-auto">
             {filteredPlayers.map((p) => (
               <li key={p.id}>
                 <button
                   onClick={() => setPlayerId(p.id)}
-                  className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm ${
-                    playerId === p.id ? "bg-indigo-600" : "hover:bg-slate-800"
+                  className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm transition ${
+                    playerId === p.id ? "bg-ucl-blue text-white" : "hover:bg-surface-2"
                   }`}
                 >
                   <span>{p.name}</span>
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-muted">
                     {p.position} · {p.clubName}
                   </span>
                 </button>
@@ -182,24 +215,30 @@ export function ChipShop({
             <button
               disabled={!playerId || pending}
               onClick={() => confirmBuy(selected, playerId, null)}
-              className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium disabled:opacity-40"
+              className="rounded-lg bg-ucl-blue px-4 py-2 text-sm font-semibold text-white hover:bg-ucl-cyan hover:text-[#04122e] disabled:opacity-40"
             >
               Confirm
             </button>
-            <button onClick={() => setSelected(null)} className="rounded px-4 py-2 text-sm text-slate-400">
+            <button onClick={() => setSelected(null)} className="rounded-lg px-4 py-2 text-sm text-muted hover:text-foreground">
               Cancel
             </button>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {selected && CHIP_TARGET[selected] === "CLUB" && (
-        <div className="mt-6 rounded-lg border border-indigo-800 bg-slate-900 p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 10 }}
+          className="card-surface mt-6 rounded-2xl border-ucl-blue/40 p-4"
+        >
           <div className="mb-2 font-medium">Pick a target club for {CHIP_META[selected].label}</div>
           <select
             value={clubId}
             onChange={(e) => setClubId(e.target.value)}
-            className="mb-3 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
+            aria-label="Select target club"
+            className="mb-3 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm"
           >
             <option value="">Select a club…</option>
             {clubs.map((c) => (
@@ -212,16 +251,17 @@ export function ChipShop({
             <button
               disabled={!clubId || pending}
               onClick={() => confirmBuy(selected, null, clubId)}
-              className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium disabled:opacity-40"
+              className="rounded-lg bg-ucl-blue px-4 py-2 text-sm font-semibold text-white hover:bg-ucl-cyan hover:text-[#04122e] disabled:opacity-40"
             >
               Confirm
             </button>
-            <button onClick={() => setSelected(null)} className="rounded px-4 py-2 text-sm text-slate-400">
+            <button onClick={() => setSelected(null)} className="rounded-lg px-4 py-2 text-sm text-muted hover:text-foreground">
               Cancel
             </button>
           </div>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   );
 }

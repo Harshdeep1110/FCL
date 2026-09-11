@@ -1,15 +1,26 @@
 import { LoginForm } from "@/components/LoginForm";
+import { Starball } from "@/components/ui/PageHeader";
+import { Reveal } from "@/components/ui/motion";
 
 export default function LoginPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
-      <div className="w-full max-w-sm rounded-xl border border-slate-800 bg-slate-900/50 p-8 shadow-xl">
-        <h1 className="mb-1 text-2xl font-bold text-white">UCL Fantasy</h1>
-        <p className="mb-6 text-sm text-slate-400">
-          Private league — sign in to continue.
-        </p>
-        <LoginForm />
-      </div>
+    <main className="flex min-h-screen items-center justify-center px-4">
+      <Reveal className="w-full max-w-sm">
+        <div className="card-surface rounded-2xl p-8 shadow-2xl">
+          <div className="mb-5 flex items-center gap-3">
+            <Starball className="h-10 w-10" />
+            <div>
+              <h1 className="text-2xl font-bold">
+                <span className="text-brand">UCL Fantasy</span>
+              </h1>
+              <p className="text-sm text-muted">
+                Private league — sign in to continue.
+              </p>
+            </div>
+          </div>
+          <LoginForm />
+        </div>
+      </Reveal>
     </main>
   );
 }

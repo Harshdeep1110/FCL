@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { DraftBoard, type PoolPlayer } from "@/components/DraftBoard";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -35,16 +35,13 @@ export default async function DraftPage() {
   }));
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="text-slate-400 hover:text-slate-200">
-            ←
-          </Link>
-          <h1 className="text-xl font-bold">Draft your squad</h1>
-        </div>
-        <span className="text-sm text-slate-400">League phase</span>
-      </header>
+    <main className="flex min-h-screen flex-col">
+      <PageHeader
+        title="Draft your squad"
+        back="/"
+        subtitle="League phase · 100M · 15 players"
+        right={<span className="hidden sm:inline">League phase</span>}
+      />
 
       <DraftBoard
         pool={pool}

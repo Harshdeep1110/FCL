@@ -12,29 +12,29 @@ export function LoginForm() {
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium text-slate-300">Email</span>
+        <span className="font-medium text-foreground">Email</span>
         <input
           name="email"
           type="email"
           required
           autoComplete="email"
-          className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 outline-none focus:border-indigo-500"
+          className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-foreground outline-none transition focus:border-ucl-cyan"
         />
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium text-slate-300">Password</span>
+        <span className="font-medium text-foreground">Password</span>
         <input
           name="password"
           type="password"
           required
           autoComplete="current-password"
-          className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 outline-none focus:border-indigo-500"
+          className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-foreground outline-none transition focus:border-ucl-cyan"
         />
       </label>
 
       {state?.error && (
-        <p className="text-sm text-red-400" role="alert">
+        <p className="text-sm text-bad" role="alert">
           {state.error}
         </p>
       )}
@@ -42,7 +42,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={pending}
-        className="rounded-md bg-indigo-600 px-4 py-2 font-medium text-white transition hover:bg-indigo-500 disabled:opacity-60"
+        className="rounded-lg bg-gradient-to-r from-ucl-cyan to-ucl-blue px-4 py-2.5 font-semibold text-[#04122e] shadow-lg shadow-ucl-blue/25 transition hover:brightness-110 disabled:opacity-60"
       >
         {pending ? "Signing in…" : "Sign in"}
       </button>

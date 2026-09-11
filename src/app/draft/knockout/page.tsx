@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { DraftBoard, type PoolPlayer } from "@/components/DraftBoard";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { SQUAD_RULES } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
@@ -51,21 +51,15 @@ export default async function KnockoutDraftPage() {
   const rules = SQUAD_RULES.KNOCKOUT;
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="text-slate-400 hover:text-slate-200">
-            ←
-          </Link>
-          <h1 className="text-xl font-bold">Knockout redraft</h1>
-        </div>
-        <span className="text-sm text-slate-400">
-          {rules.budget}M · {rules.squadSize} players · active clubs only
-        </span>
-      </header>
+    <main className="flex min-h-screen flex-col">
+      <PageHeader
+        title="Knockout redraft"
+        back="/"
+        subtitle={`${rules.budget}M · ${rules.squadSize} players · active clubs only`}
+      />
 
       {!leaguePhaseDone && (
-        <p className="mx-6 mt-4 rounded border border-amber-800/50 bg-amber-950/30 p-3 text-sm text-amber-300">
+        <p className="mx-3 mt-4 rounded-xl border border-warn/30 bg-warn/10 p-3 text-sm text-warn sm:mx-6">
           The knockout redraft opens once the league phase is complete. You can
           preview and build a squad now, but it&apos;s only official after the
           league phase ends.

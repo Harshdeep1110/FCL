@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/session";
 import { AdminPanel, type AdminPlayer } from "@/components/AdminPanel";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -32,15 +32,10 @@ export default async function AdminPage() {
   }));
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="flex items-center gap-3 border-b border-slate-800 px-6 py-4">
-        <Link href="/" className="text-slate-400 hover:text-slate-200">
-          ←
-        </Link>
-        <h1 className="text-xl font-bold">Admin — stat overrides</h1>
-      </header>
+    <main className="flex min-h-screen flex-col">
+      <PageHeader title="Admin — stat overrides" back="/" />
 
-      <div className="mx-auto max-w-3xl px-6 py-8">
+      <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
         <AdminPanel
           gameweeks={gameweeks.map((g) => ({
             id: g.id,
@@ -51,20 +46,20 @@ export default async function AdminPage() {
 
         <h2 className="mt-10 mb-3 text-lg font-semibold">Recent overrides</h2>
         {overrides.length === 0 ? (
-          <p className="text-sm text-slate-500">No overrides logged yet.</p>
+          <p className="text-sm text-muted">No overrides logged yet.</p>
         ) : (
           <ul className="flex flex-col gap-1 text-sm">
             {overrides.map((o) => (
               <li
                 key={o.id}
-                className="rounded border border-slate-800 bg-slate-900/40 px-3 py-2"
+                className="rounded-lg border border-border bg-surface/50 px-3 py-2"
               >
-                <span className="text-slate-400">
+                <span className="text-muted">
                   {o.createdAt.toLocaleString()} · {o.admin.name ?? o.admin.email}
                 </span>{" "}
                 — <span className="font-mono">{o.fieldChanged}</span>:{" "}
                 {o.oldValue} → {o.newValue}{" "}
-                <span className="text-slate-500">({o.reason})</span>
+                <span className="text-muted/70">({o.reason})</span>
               </li>
             ))}
           </ul>
