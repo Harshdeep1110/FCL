@@ -10,13 +10,15 @@ export const authConfig = {
   session: { strategy: "jwt" },
   providers: [], // real providers live in src/auth.ts
   callbacks: {
-    // Route protection for middleware: everything requires login except /login.
+    // Route protection for middleware: everything requires login except the
+    // public auth pages (/login and /register).
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const onLogin = nextUrl.pathname === "/login";
+      const isPublic =
+        nextUrl.pathname === "/login" || nextUrl.pathname === "/register";
 
-      if (onLogin) {
-        // Bounce already-authenticated users away from the login page.
+      if (isPublic) {
+        // Bounce already-authenticated users away from the auth pages.
         if (isLoggedIn) return Response.redirect(new URL("/", nextUrl));
         return true;
       }
