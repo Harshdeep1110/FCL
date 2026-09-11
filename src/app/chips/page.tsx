@@ -1,9 +1,10 @@
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { runningTotal } from "@/lib/chips";
 import { CHIP_RULES } from "@/lib/config";
 import { ChipShop, type ChipTargetPlayer } from "@/components/ChipShop";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { AnimatedNumber } from "@/components/ui/motion";
 
 export const dynamic = "force-dynamic";
 
@@ -41,21 +42,24 @@ export default async function ChipsPage() {
   }));
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="text-slate-400 hover:text-slate-200">
-            ←
-          </Link>
-          <h1 className="text-xl font-bold">Black Market</h1>
-        </div>
-        <div className="text-sm text-slate-400">
-          Running total: <span className="font-mono text-emerald-400">{total}</span> pts
-        </div>
-      </header>
+    <main className="flex min-h-screen flex-col">
+      <PageHeader
+        title="Black Market"
+        back="/"
+        right={
+          <span>
+            Running total:{" "}
+            <AnimatedNumber
+              value={total}
+              className="font-mono text-ok"
+            />{" "}
+            pts
+          </span>
+        }
+      />
 
       {!gw ? (
-        <p className="p-6 text-slate-400">No open gameweek to buy chips for right now.</p>
+        <p className="p-6 text-muted">No open gameweek to buy chips for right now.</p>
       ) : (
         <ChipShop
           gameweekId={gw.id}

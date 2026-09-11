@@ -1,26 +1,200 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   UCL Fantasy design tokens — Champions League navy + electric cyan/blue.
+   Inspired by the official UEFA Champions League Fantasy app: deep navy
+   gradient backgrounds, cyan/blue primary, magenta highlight accents, and a
+   green pitch for the team-selection view.
+--------------------------------------------------------------------------- */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Surfaces */
+  --background: #070b1c;
+  --surface: #0d1430;
+  --surface-2: #131b3d;
+  --border: #24306a;
+  --foreground: #eaf0ff;
+  --muted: #93a0c8;
+
+  /* Brand */
+  --ucl-cyan: #00e1ff;
+  --ucl-blue: #1e5bff;
+  --ucl-magenta: #ff2fb9;
+  --ucl-violet: #7c5cff;
+
+  /* Status */
+  --ok: #2ee6a6;
+  --warn: #ffc531;
+  --bad: #ff5470;
+
+  /* Pitch */
+  --pitch-a: #0f7a3d;
+  --pitch-b: #0b5e2f;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+
+  --color-ucl-cyan: var(--ucl-cyan);
+  --color-ucl-blue: var(--ucl-blue);
+  --color-ucl-magenta: var(--ucl-magenta);
+  --color-ucl-violet: var(--ucl-violet);
+
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Named animations usable as `animate-pop`, `animate-rise`, etc. */
+  --animate-pop: pop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-rise: rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-fade: fade 0.4s ease both;
+  --animate-shimmer: shimmer 2.4s linear infinite;
+  --animate-pulse-ring: pulse-ring 2s ease-out infinite;
+  --animate-count-glow: count-glow 0.5s ease both;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -150% 0;
+  }
+  100% {
+    background-position: 250% 0;
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 225, 255, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(0, 225, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 225, 255, 0);
+  }
+}
+
+@keyframes count-glow {
+  0% {
+    transform: scale(1.25);
+    color: var(--ucl-cyan);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+html {
+  color-scheme: dark;
+}
+
 body {
-  background: var(--background);
+  min-height: 100dvh;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  /* Champions League aurora: navy base with cyan/violet glows fixed to viewport. */
+  background:
+    radial-gradient(
+      1100px 600px at 15% -10%,
+      rgba(30, 91, 255, 0.22),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 500px at 110% 10%,
+      rgba(124, 92, 255, 0.18),
+      transparent 55%
+    ),
+    var(--background);
+  background-attachment: fixed;
+}
+
+/* Utility: the frosted "star-ball" surface used for cards and headers. */
+@utility card-surface {
+  background: linear-gradient(
+    160deg,
+    color-mix(in oklab, var(--surface) 92%, transparent),
+    color-mix(in oklab, var(--surface-2) 92%, transparent)
+  );
+  border: 1px solid var(--border);
+  backdrop-filter: blur(6px);
+}
+
+/* Utility: gradient brand text (cyan → blue). */
+@utility text-brand {
+  background: linear-gradient(90deg, var(--ucl-cyan), var(--ucl-blue));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Utility: shimmering skeleton fill. */
+@utility skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface) 25%,
+    var(--surface-2) 37%,
+    var(--surface) 63%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+/* Utility: the green pitch surface with mowed stripes + penalty markings. */
+@utility pitch-turf {
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.06) 0 42px,
+      transparent 42px 84px
+    ),
+    linear-gradient(160deg, var(--pitch-a), var(--pitch-b));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
